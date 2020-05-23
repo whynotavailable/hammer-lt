@@ -23,7 +23,7 @@ func registrator(cli *clientv3.Client) {
 		},
 	}
 
-	lease, _ := cli.Lease.Grant(context.Background(), int64(reg.Length) + 30)
+	lease, _ := cli.Lease.Grant(context.Background(), int64(reg.Length)+30)
 	leaseID := strconv.FormatInt(int64(lease.ID), 16)
 
 	reg.Lease = leaseID

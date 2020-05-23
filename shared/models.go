@@ -9,9 +9,9 @@ type ServerRegistration struct {
 }
 
 type TestResult struct {
-	StatusCode int16
+	StatusCode   int16
 	ResponseTime int
-	Target string
+	Target       string
 }
 
 type ResultData struct {
@@ -19,28 +19,28 @@ type ResultData struct {
 }
 
 type AggregateTestResult struct {
-	Target string
-	Requests int
-	StatusCodes map[string]int
-	P50 int
-	P90 int
-	P99 int
+	Target            string
+	Requests          int
+	StatusCodes       map[string]int
+	P50               int
+	P90               int
+	P99               int
 	RequestsPerSecond float64
 }
 
 type TestTarget struct {
-	URI string
-	Method string
+	URI     string
+	Method  string
 	Headers map[string][]string
-	Body string
+	Body    string
 }
 
 type Test struct {
-	State string
-	StateReason string
-	Lease string
-	Length int16
+	State        string
+	StateReason  string
+	Lease        string
+	Length       int16
 	VirtualUsers int16
-	Servers []string
-	Targets []TestTarget
+	Servers      []string
+	Targets      []TestTarget
 }
