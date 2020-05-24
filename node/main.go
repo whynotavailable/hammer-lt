@@ -14,9 +14,15 @@ import (
 )
 
 func registrator(cli *clientv3.Client, serverID string) {
-	reg := shared.ServerRegistration{ID: serverID}
-	data, _ := json.Marshal(reg)
-	cli.Put(context.Background(), "/lt/server/"+serverID, string(data))
+	for {
+		reg := shared.ServerRegistration{
+			ID: serverID,
+			Timestamp: time.Now(),
+		}
+		data, _ := json.Marshal(reg)
+		cli.Put(context.Background(), "/lt/server/"+serverID, string(data))
+		time.Sleep(15 * time.Second)
+	}
 }
 
 func watcher(cli *clientv3.Client, serverID string) {
@@ -161,7 +167,6 @@ func actuallyRunTest(test shared.Test, collector chan shared.TestResult, cancell
 func main() {
 	uuid, _ := uuid.NewRandom()
 	serverID := uuid.URN()
-	log.Println("Starting watcher")
 
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints: []string{"127.0.0.1:2379"},
@@ -171,8 +176,10 @@ func main() {
 	}
 	defer cli.Close()
 
+	log.Println("Starting watcher")
 	go watcher(cli, serverID)
 
+	log.Println("Starting registration")
 	go registrator(cli, serverID)
 
 	select {}

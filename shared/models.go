@@ -1,11 +1,14 @@
 package shared
 
+import "time"
+
 type MyThing struct {
 	Message string
 }
 
 type ServerRegistration struct {
 	ID string
+	Timestamp time.Time
 }
 
 type TestResult struct {
