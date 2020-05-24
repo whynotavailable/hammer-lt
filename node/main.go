@@ -16,7 +16,7 @@ import (
 func registrator(cli *clientv3.Client, serverID string) {
 	for {
 		reg := shared.ServerRegistration{
-			ID: serverID,
+			ID:        serverID,
 			Timestamp: time.Now(),
 		}
 		data, _ := json.Marshal(reg)

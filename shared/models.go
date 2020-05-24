@@ -7,7 +7,7 @@ type MyThing struct {
 }
 
 type ServerRegistration struct {
-	ID string
+	ID        string
 	Timestamp time.Time
 }
 
