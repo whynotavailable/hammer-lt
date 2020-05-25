@@ -11,3 +11,16 @@ The goal is that everything in the UI updates based on the page you are on, so y
 to the UI instead of all of them. This means that the UI will need to tell the API (through the socket)
 which page it's on. This will make it so that you can scale out the UI, API, and agents individually. The only real
 thing that'll be annoying in that model is cleaning up old servers, but that's idempotent, so it really doesn't matter.
+
+## Sockets
+
+For returning sockets data, send out a message that kind of looks like this.
+
+```json
+{
+  "type": "type",
+  "data": {}
+}
+```
+
+Data will be represented as a `interface{}`.

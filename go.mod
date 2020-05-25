@@ -9,6 +9,7 @@ require (
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/google/uuid v1.1.1
+	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.2
 	go.etcd.io/etcd v3.3.22+incompatible
 	go.uber.org/zap v1.15.0 // indirect

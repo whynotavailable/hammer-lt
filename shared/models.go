@@ -22,6 +22,11 @@ type ResultData struct {
 	Results  []AggregateTestResult
 }
 
+type SocketResponse struct {
+	Type string
+	Data interface{}
+}
+
 type AggregateTestResult struct {
 	Target            string
 	Requests          int

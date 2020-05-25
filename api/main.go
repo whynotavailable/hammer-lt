@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/mux"
 	"go.etcd.io/etcd/clientv3"
 	"hammer-api/shared"
 	"io/ioutil"
@@ -12,23 +13,6 @@ import (
 	"strconv"
 	"time"
 )
-
-func watcher(cli *clientv3.Client) {
-	tests := make(map[string]string)
-
-	rch := cli.Watch(context.Background(), "/lt/test/", clientv3.WithPrefix())
-	for wresp := range rch {
-		for _, ev := range wresp.Events {
-			if ev.Type == clientv3.EventTypePut {
-				tests[string(ev.Kv.Key)] = string(ev.Kv.Value)
-			} else {
-				delete(tests, string(ev.Kv.Key))
-			}
-
-			log.Println(tests)
-		}
-	}
-}
 
 func serverCleaner(cli *clientv3.Client) {
 	for {
@@ -79,26 +63,52 @@ func main() {
 	}
 	defer cli.Close()
 
-	go watcher(cli)
 	go serverCleaner(cli)
 
+	r := mux.NewRouter()
+
+	r.Use(cors)
+
+	h := hub{
+		clients:    make(map[*socketClient]bool),
+		register:   make(chan *socketClient),
+		unregister: make(chan *socketClient),
+	}
+
 	// Actions
-	http.HandleFunc("/api/test", testRunner(cli))
+	r.HandleFunc("/api/test", testRunner(cli))
 
 	// Reads (need websockets analogs)
-	http.HandleFunc("/api/tests", listTests(cli))
-	http.HandleFunc("/api/results", listResults(cli))
-	http.HandleFunc("/api/servers", listServers(cli))
+	r.HandleFunc("/api/tests", listTests(cli))
+	r.HandleFunc("/api/results", listResults(cli))
+	r.HandleFunc("/api/servers", listServers(cli))
+
+	r.HandleFunc("/ws", func(writer http.ResponseWriter, request *http.Request) {
+		serveWs(&h, writer, request)
+	})
+
+	http.Handle("/", r)
 
 	log.Println("listening")
 	http.ListenAndServe(":8085", nil)
+}
+
+func cors(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Add("Access-Control-Allow-Origin", "http://localhost:4200")
+		writer.Header().Add("Access-Control-Allow-Methods", "*")
+		writer.Header().Add("Access-Control-Allow-Headers", "*")
+
+		if request.Method != "OPTIONS" {
+			handler.ServeHTTP(writer, request)
+		}
+	})
 }
 
 func listResults(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		testID := request.URL.Query().Get("test")
 		q := fmt.Sprintf("/lt/results/%s/", testID)
-		log.Println(q)
 		resp, err := cli.Get(context.Background(), q, clientv3.WithPrefix())
 
 		if err != nil {
@@ -109,7 +119,6 @@ func listResults(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) 
 
 		for _, kv := range resp.Kvs {
 			var testResult shared.ResultData
-			log.Println(string(kv.Value))
 			json.Unmarshal(kv.Value, &testResult)
 
 			results = append(results, testResult)
@@ -168,16 +177,14 @@ func testRunner(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) {
 		}
 
 		json.Unmarshal(data, &test)
-		log.Println(test.Targets)
 		test.State = "start"
 
-		lease, _ := cli.Lease.Grant(context.Background(), int64(test.Length)+30)
+		lease, _ := cli.Lease.Grant(context.Background(), int64(test.Length)+1800)
 		leaseID := strconv.FormatInt(int64(lease.ID), 16)
 
 		test.Lease = leaseID
 
 		data, _ = json.Marshal(test)
-		log.Println(lease.ID)
 		lid, _ := strconv.ParseInt(leaseID, 16, 64)
 		cli.Put(context.Background(), "/lt/test/"+leaseID, string(data), clientv3.WithLease(clientv3.LeaseID(lid)))
 

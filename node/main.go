@@ -60,7 +60,7 @@ func runTest(test shared.Test, cli *clientv3.Client, serverID string) {
 		go actuallyRunTest(test, collector, cancellation)
 	}
 
-	agg := time.After(5 * time.Second)
+	aggTicker := time.NewTicker(5 * time.Second)
 	timeout := time.After(time.Duration(test.Length) * time.Second)
 	results := make(map[string][]int)
 
@@ -74,9 +74,8 @@ func runTest(test shared.Test, cli *clientv3.Client, serverID string) {
 			aggregate(test, cli, results, serverID)
 			log.Println("no more results")
 			return
-		case <-agg:
+		case <-aggTicker.C:
 			aggregate(test, cli, results, serverID)
-			agg = time.After(5 * time.Second)
 		case r := <-collector:
 			if m := results[r.Target]; m == nil {
 				results[r.Target] = make([]int, 0)
