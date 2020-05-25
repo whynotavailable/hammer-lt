@@ -26,8 +26,9 @@ func (h *hub) Runner() {
 				close(client.send)
 			}
 		case message := <-h.send:
+			log.Println(h.clients)
 			for client := range h.clients {
-				if client.location == message.Type {
+				if message.Location == "" || client.location == message.Location {
 					data, err := json.Marshal(message)
 
 					if err != nil {

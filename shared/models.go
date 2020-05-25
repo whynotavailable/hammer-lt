@@ -23,8 +23,9 @@ type ResultData struct {
 }
 
 type SocketResponse struct {
-	Type string
-	Data interface{}
+	Type     string
+	Data     interface{}
+	Location string
 }
 
 type AggregateTestResult struct {

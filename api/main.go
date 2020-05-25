@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -73,6 +74,7 @@ func main() {
 		clients:    make(map[*socketClient]bool),
 		register:   make(chan *socketClient),
 		unregister: make(chan *socketClient),
+		send: make(chan shared.SocketResponse),
 	}
 
 	// Actions
@@ -93,7 +95,32 @@ func main() {
 
 	go h.Runner()
 
+	go watcher(cli, &h)
+
 	http.ListenAndServe(":8085", nil)
+}
+
+func watcher(cli *clientv3.Client, h *hub) {
+	rch := cli.Watch(context.Background(), "/lt/", clientv3.WithPrefix())
+	for wresp := range rch {
+		for _, ev := range wresp.Events {
+			if ev.Type == clientv3.EventTypePut {
+				key := string(ev.Kv.Key)
+
+				if strings.HasPrefix(key, "/lt/test/") {
+					log.Println("found test")
+					h.send <- shared.SocketResponse{
+						Type:     "test",
+						Data:     "yolo",
+					}
+				} else if strings.HasPrefix(key, "/lt/server/") {
+
+				} else if strings.HasPrefix(key, "/lt/results/") {
+
+				}
+			}
+		}
+	}
 }
 
 func cors(handler http.Handler) http.Handler {
