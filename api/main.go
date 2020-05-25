@@ -90,6 +90,9 @@ func main() {
 	http.Handle("/", r)
 
 	log.Println("listening")
+
+	go h.Runner()
+
 	http.ListenAndServe(":8085", nil)
 }
 

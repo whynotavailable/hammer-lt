@@ -79,6 +79,8 @@ func serveWs(h *hub, writer http.ResponseWriter, r *http.Request) {
 		send:     make(chan []byte, 256),
 	}
 
+	h.register <- &client
+
 	go client.reader()
 	go client.writer()
 }
