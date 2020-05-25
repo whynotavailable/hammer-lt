@@ -35,7 +35,12 @@ func watcher(cli *clientv3.Client, serverID string) {
 				tests[string(ev.Kv.Key)] = string(ev.Kv.Value)
 				var test shared.Test
 				json.Unmarshal(ev.Kv.Value, &test)
-				go runTest(test, cli, serverID)
+				for _, server := range test.Servers {
+					if server == serverID {
+						go runTest(test, cli, serverID)
+						break
+					}
+				}
 			} else {
 				delete(tests, string(ev.Kv.Key))
 			}
@@ -44,12 +49,13 @@ func watcher(cli *clientv3.Client, serverID string) {
 }
 
 func runTest(test shared.Test, cli *clientv3.Client, serverID string) {
-	var i int16
+	log.Println("starting test")
 
 	collector := make(chan shared.TestResult, 50)
 
 	cancellation := make(chan bool)
 
+	var i int16
 	for i = 0; i < test.VirtualUsers; i++ {
 		go actuallyRunTest(test, collector, cancellation)
 	}
@@ -82,7 +88,11 @@ func runTest(test shared.Test, cli *clientv3.Client, serverID string) {
 }
 
 func aggregate(test shared.Test, cli *clientv3.Client, results map[string][]int, serverID string) {
-	response := shared.ResultData{}
+	response := shared.ResultData{
+		ServerID: serverID,
+	}
+
+	log.Println("building agg")
 
 	for targetId, list := range results {
 		resultsLen := len(list)

@@ -18,7 +18,8 @@ type TestResult struct {
 }
 
 type ResultData struct {
-	Results []AggregateTestResult
+	ServerID string
+	Results  []AggregateTestResult
 }
 
 type AggregateTestResult struct {
@@ -46,4 +47,8 @@ type Test struct {
 	VirtualUsers int16
 	Servers      []string
 	Targets      []TestTarget
+}
+
+type TestResponse struct {
+	ID string
 }

@@ -30,8 +30,6 @@ func watcher(cli *clientv3.Client) {
 	}
 }
 
-// Keep this the same so I can reuse the found KV, it's not dry, but it's safer
-// in the case of a redesign of key names
 func serverCleaner(cli *clientv3.Client) {
 	for {
 		resp, err := cli.Get(context.Background(), "/lt/server", clientv3.WithPrefix())
@@ -41,8 +39,11 @@ func serverCleaner(cli *clientv3.Client) {
 
 		for _, kv := range resp.Kvs {
 			var server shared.ServerRegistration
-			json.Unmarshal(kv.Value, &server)
-			if time.Now().Add(-30 * time.Second).After(server.Timestamp) {
+			err := json.Unmarshal(kv.Value, &server)
+
+			// If the data doesn't unmarshal, or the timeout's met, delete the registration.
+			// If the server comes back it'll just pop back in.
+			if err != nil || time.Now().Add(-30*time.Second).After(server.Timestamp) {
 				log.Println(fmt.Sprintf("Server %s timed out", server.ID))
 				cli.Delete(context.Background(), string(kv.Key))
 			}
@@ -81,17 +82,75 @@ func main() {
 	go watcher(cli)
 	go serverCleaner(cli)
 
+	// Actions
 	http.HandleFunc("/api/test", testRunner(cli))
+
+	// Reads (need websockets analogs)
+	http.HandleFunc("/api/tests", listTests(cli))
+	http.HandleFunc("/api/results", listResults(cli))
 	http.HandleFunc("/api/servers", listServers(cli))
 
 	log.Println("listening")
 	http.ListenAndServe(":8085", nil)
 }
 
+func listResults(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		testID := request.URL.Query().Get("test")
+		q := fmt.Sprintf("/lt/results/%s/", testID)
+		log.Println(q)
+		resp, err := cli.Get(context.Background(), q, clientv3.WithPrefix())
+
+		if err != nil {
+			log.Println(err.Error())
+		}
+
+		results := make([]shared.ResultData, 0)
+
+		for _, kv := range resp.Kvs {
+			var testResult shared.ResultData
+			log.Println(string(kv.Value))
+			json.Unmarshal(kv.Value, &testResult)
+
+			results = append(results, testResult)
+		}
+
+		response, _ := json.Marshal(results)
+		writer.Header().Add("Content-Type", "application/json")
+		writer.Write(response)
+	}
+}
+
 func listServers(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		servers := getServers(cli)
 		response, _ := json.Marshal(servers)
+		writer.Header().Add("Content-Type", "application/json")
+		writer.Write(response)
+	}
+}
+
+func listTests(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		resp, err := cli.Get(context.Background(), "/lt/test", clientv3.WithPrefix())
+		if err != nil {
+			log.Println(err.Error())
+		}
+
+		tests := make([]shared.Test, 0)
+
+		for _, kv := range resp.Kvs {
+			var test shared.Test
+			json.Unmarshal(kv.Value, &test)
+
+			for i := 0; i < len(test.Targets); i++ {
+				test.Targets[i].Headers = nil // These can contain secrets, don't return them
+			}
+
+			tests = append(tests, test)
+		}
+
+		response, _ := json.Marshal(tests)
 		writer.Header().Add("Content-Type", "application/json")
 		writer.Write(response)
 	}
@@ -121,5 +180,10 @@ func testRunner(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) {
 		log.Println(lease.ID)
 		lid, _ := strconv.ParseInt(leaseID, 16, 64)
 		cli.Put(context.Background(), "/lt/test/"+leaseID, string(data), clientv3.WithLease(clientv3.LeaseID(lid)))
+
+		response, _ := json.Marshal(shared.TestResponse{ID: leaseID})
+		writer.Header().Add("Content-Type", "application/json")
+		writer.WriteHeader(http.StatusCreated) // technically not right, but mostly
+		writer.Write(response)
 	}
 }
