@@ -1,7 +1,5 @@
 package main
 
-import "log"
-
 type hub struct {
 	clients map[*socketClient]bool
 
