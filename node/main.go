@@ -88,6 +88,7 @@ func runTest(test shared.Test, cli *clientv3.Client, serverID string) {
 
 func aggregate(test shared.Test, cli *clientv3.Client, results map[string][]int, serverID string) {
 	response := shared.ResultData{
+		Lease:    test.Lease,
 		ServerID: serverID,
 	}
 

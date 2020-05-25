@@ -20,6 +20,7 @@ type TestResult struct {
 type ResultData struct {
 	ServerID string
 	Results  []AggregateTestResult
+	Lease    string
 }
 
 type SocketResponse struct {

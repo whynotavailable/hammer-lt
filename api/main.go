@@ -78,7 +78,8 @@ func main() {
 	}
 
 	// Actions
-	r.HandleFunc("/api/test", testRunner(cli))
+	r.HandleFunc("/api/test", testRunner(cli)).Methods("POST", "OPTIONS")
+	r.HandleFunc("/api/test", getTest(cli)).Methods("GET", "OPTIONS")
 
 	// Reads (need websockets analogs)
 	r.HandleFunc("/api/tests", listTests(cli))
@@ -100,6 +101,37 @@ func main() {
 	http.ListenAndServe(":8085", nil)
 }
 
+func getTest(cli *clientv3.Client) func(http.ResponseWriter, *http.Request) {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		testID := request.URL.Query().Get("test")
+		resp, err := cli.Get(context.Background(), fmt.Sprintf("/lt/test/%s", testID))
+
+		if err != nil {
+			writer.WriteHeader(http.StatusInternalServerError)
+			writer.Write([]byte(err.Error()))
+		}
+
+		for _, kv := range resp.Kvs {
+			var test shared.Test
+			json.Unmarshal(kv.Value, &test)
+
+			// clear out the headers
+			for i := 0; i < len(test.Targets); i++ {
+				test.Targets[i].Headers = nil // These can contain secrets, don't return them
+			}
+
+			data, _ := json.Marshal(test)
+
+			writer.Header().Add("Content-Type", "application/json")
+			writer.Write(data)
+
+			return
+		}
+
+		writer.WriteHeader(http.StatusNotFound)
+	}
+}
+
 func watcher(cli *clientv3.Client, h *hub) {
 	rch := cli.Watch(context.Background(), "/lt/", clientv3.WithPrefix())
 	for wresp := range rch {
@@ -109,14 +141,27 @@ func watcher(cli *clientv3.Client, h *hub) {
 
 				if strings.HasPrefix(key, "/lt/test/") {
 					log.Println("found test")
+					var test shared.Test
+					json.Unmarshal(ev.Kv.Value, &test)
+
+					for i := 0; i < len(test.Targets); i++ {
+						test.Targets[i].Headers = nil // These can contain secrets, don't return them
+					}
+
 					h.send <- shared.SocketResponse{
 						Type:     "test",
-						Data:     "yolo",
+						Data:     test,
 					}
 				} else if strings.HasPrefix(key, "/lt/server/") {
 
 				} else if strings.HasPrefix(key, "/lt/results/") {
+					var results shared.ResultData
+					json.Unmarshal(ev.Kv.Value, &results)
 
+					h.send <- shared.SocketResponse{
+						Type:     "results",
+						Data:     results,
+					}
 				}
 			}
 		}
