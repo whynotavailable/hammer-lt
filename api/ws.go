@@ -77,6 +77,7 @@ func serveWs(h *hub, writer http.ResponseWriter, r *http.Request) {
 		conn:     conn,
 		location: "",
 		send:     make(chan []byte, 256),
+		hub:      h,
 	}
 
 	h.register <- &client
